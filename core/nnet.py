@@ -29,9 +29,11 @@ class NetLayer(object):
     def __init__(self,w,b):
         self.w=w
         self.b=b
+        self.vW=np.zeros(w.shape)
+        self.vb=np.zeros(b.shape)
         return None
 class nnet(object):
-    def __init__(self,layers,active_fun='sigm',output_fun='softmax',eta=0.01):
+    def __init__(self,layers,active_fun='sigm',output_fun='softmax',eta=0.01,momentum=0,show=True):
         if not (type(layers)is list):
             raise ValueError('参数错误')
         n=len(layers)
@@ -49,6 +51,7 @@ class nnet(object):
         self.out={}
         self.active_fun=active_fun
         self.output_fun=output_fun
+        self.momentum=momentum
         return None
     def nnetff(self,data):
         n=self.n
@@ -94,9 +97,16 @@ class nnet(object):
             d[ii]=np.dot(d[ii+1],self.layer[ii+1].w.T)*d_act
             for ii in xrange(1,n):
                 dw=np.dot(self.out[ii-1].T,d[ii])/m
+                dw=self.eta*dw
                 db=np.sum(d[ii],axis=0)/m
-                self.layer[ii].w=self.layer[ii].w-self.eta*dw
-                self.layer[ii].b=self.layer[ii].b-self.eta*db
+                db=self.eta*db
+                if self.momentum>0:
+                    self.layer[ii].vW=self.momentum*self.layer[ii].vW+dw
+                    self.layer[ii].vb=self.momentum*self.layer[ii].vb+db
+                    dw=self.layer[ii].vW
+                    db=self.layer[ii].vb
+                self.layer[ii].w=self.layer[ii].w-dw
+                self.layer[ii].b=self.layer[ii].b-db
         return None
     def nnetff_fast(self,data):
         out=data
@@ -153,8 +163,8 @@ if __name__=='__main__':
     test_x=np.asarray(data['test_x'],np.float)/255.0
     test_y=np.asarray(data['test_y'],np.float)
     del data
-    nn=nnet([784,20,10],active_fun='sigm',output_fun='softmax',eta=0.1)
-    nn.train(train_x,train_y,epoch=20,batchsize=50)
+    nn=nnet([784,20,10],active_fun='sigm',output_fun='softmax',eta=0.1,momentum=0.1)
+    nn.train(train_x,train_y,epoch=10,batchsize=100)
     accuray=nn.test(test_x,test_y)
     print('Last accuray=%f%%'%(accuray*100))
     
