@@ -5,6 +5,7 @@ Created on 2014年6月18日
 @author: sjm
 '''
 import numpy as np
+from cv2 import batchDistance
 def sigm(x):
     return 1/(1+np.exp(-x))
 def dsigm(x):
@@ -41,7 +42,7 @@ class nnet(object):
         for ii in xrange(1,n):
             w=(np.random.random_sample((layers[ii-1],layers[ii]))-0.5)*2*4*np.sqrt(6.0/float(layers[ii]+layers[ii-1]))
             #w=np.random.random_sample((layers[ii-1],layers[ii]))*2-1
-            b=np.zeros((layers[ii],))
+            b=np.zeros((1,layers[ii]))
             if ii<n-1:
                 self.layer[ii]=NetLayer(w,b)
             else:
@@ -95,18 +96,18 @@ class nnet(object):
             else:
                 raise ValueError('error active_fun %s'%(self.active_fun))
             d[ii]=np.dot(d[ii+1],self.layer[ii+1].w.T)*d_act
-            for ii in xrange(1,n):
-                dw=np.dot(self.out[ii-1].T,d[ii])/m
-                dw=self.eta*dw
-                db=np.sum(d[ii],axis=0)/m
-                db=self.eta*db
-                if self.momentum>0:
-                    self.layer[ii].vW=self.momentum*self.layer[ii].vW+dw
-                    self.layer[ii].vb=self.momentum*self.layer[ii].vb+db
-                    dw=self.layer[ii].vW
-                    db=self.layer[ii].vb
-                self.layer[ii].w=self.layer[ii].w-dw
-                self.layer[ii].b=self.layer[ii].b-db
+        for ii in xrange(1,n):
+            dw=np.dot(self.out[ii-1].T,d[ii])/m
+            dw=self.eta*dw
+            db=np.sum(d[ii],axis=0)/m
+            db=self.eta*db
+            if self.momentum>0:
+                self.layer[ii].vW=self.momentum*self.layer[ii].vW+dw
+                self.layer[ii].vb=self.momentum*self.layer[ii].vb+db
+                dw=self.layer[ii].vW
+                db=self.layer[ii].vb
+            self.layer[ii].w=self.layer[ii].w-dw
+            self.layer[ii].b=self.layer[ii].b-db
         return None
     def nnetff_fast(self,data):
         out=data
@@ -133,18 +134,18 @@ class nnet(object):
     def predict(self,data):
         out=self.nnetff_fast(data)
         return np.argmax(out,axis=1)
-    def train(self,train_x,train_y,epoch=20,batchsize=1):
+    def train(self,train_x,train_y,epoch=20,batch_size=1):
         #train_x=np.array(train_x,dtype=np.float32)
         #train_y=np.array(train_y,dtype=np.float32)
         n=train_x.shape[0]
-        assert n%batchsize==0
-        n_batch=n/batchsize
+        assert n%batch_size==0
+        n_batch=n/batch_size
         for ii in xrange(0,epoch):
             batch=np.random.permutation(n)
             for jj in xrange(0,n_batch):
                 
-                t_batch=train_x[batch[jj*batchsize:(jj+1)*batchsize]]
-                t_y=train_y[batch[jj*batchsize:(jj+1)*batchsize]]
+                t_batch=train_x[batch[jj*batch_size:(jj+1)*batch_size]]
+                t_y=train_y[batch[jj*batch_size:(jj+1)*batch_size]]
                 self.nnetff(t_batch)
                 self.nnetbp(t_y)
     def test(self,test_x,test_y):
@@ -163,8 +164,8 @@ if __name__=='__main__':
     test_x=np.asarray(data['test_x'],np.float)/255.0
     test_y=np.asarray(data['test_y'],np.float)
     del data
-    nn=nnet([784,20,10],active_fun='sigm',output_fun='softmax',eta=0.1,momentum=0.1)
-    nn.train(train_x,train_y,epoch=10,batchsize=100)
+    nn=nnet([784,100,100,10],active_fun='sigm',output_fun='softmax',eta=0.1,momentum=0.5)
+    nn.train(train_x,train_y,epoch=10,batch_size=100)
     accuray=nn.test(test_x,test_y)
     print('Last accuray=%f%%'%(accuray*100))
     
